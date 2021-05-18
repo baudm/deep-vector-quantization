@@ -181,12 +181,21 @@ def cli_main():
     parser.add_argument("--data_dir", type=str, default='/apcv/users/akarpathy/cifar10')
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--num_workers", type=int, default=8)
+    # dataset related
+    parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
+    parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
+    parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
+    parser.add_argument('--rgb', action='store_true', help='use rgb input')
+    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz', help='character label')
+    parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
+    parser.add_argument('--PAD', action='store_true', help='whether to keep ratio then pad for image resize')
+    parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
     # done!
     args = parser.parse_args()
     # -------------------------------------------------------------------------
 
     data = STRData(args)
-    model = VQVAE(args)
+    model = VQVAE(args, input_channels=1)
 
     # annealing schedules for lots of constants
     callbacks = []

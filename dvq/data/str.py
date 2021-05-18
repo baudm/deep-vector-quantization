@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 import pytorch_lightning as pl
 
-from dataset import AlignCollate, hierarchical_dataset
+from .dataset import AlignCollate, hierarchical_dataset
 
 
 class STRData(pl.LightningDataModule):
@@ -16,7 +16,7 @@ class STRData(pl.LightningDataModule):
 
     def _dataloader(self, split):
         root = os.path.join(self.hparams.data_dir, split)
-        dataset = hierarchical_dataset(root, self.hparams)
+        dataset = hierarchical_dataset(root, self.hparams)[0]
         collate_fn = AlignCollate(imgH=self.hparams.imgH, imgW=self.hparams.imgW, keep_ratio_with_pad=self.hparams.PAD)
         dataloader = DataLoader(
             dataset,
@@ -24,7 +24,7 @@ class STRData(pl.LightningDataModule):
             num_workers=self.hparams.num_workers,
             drop_last=True,
             pin_memory=True,
-            shuffle=True,
+            shuffle=split == 'training',
             collate_fn=collate_fn
         )
         return dataloader
