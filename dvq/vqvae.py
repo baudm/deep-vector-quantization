@@ -15,6 +15,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from data.cifar10 import CIFAR10Data
+from data.str import STRData
 from model.deepmind_enc_dec import DeepMindEncoder, DeepMindDecoder
 from model.openai_enc_dec import OpenAIEncoder, OpenAIDecoder
 from model.openai_enc_dec import Conv2d as PatchedConv2d
@@ -184,7 +185,7 @@ def cli_main():
     args = parser.parse_args()
     # -------------------------------------------------------------------------
 
-    data = CIFAR10Data(args)
+    data = STRData(args)
     model = VQVAE(args)
 
     # annealing schedules for lots of constants
