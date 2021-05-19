@@ -1,6 +1,7 @@
 import os
 
 from torch.utils.data import DataLoader
+from torchvision import transforms as T
 
 import pytorch_lightning as pl
 
@@ -14,10 +15,16 @@ class STRData(pl.LightningDataModule):
         super().__init__()
         self.hparams = args
 
-    def _dataloader(self, split):
+    def _dataloader(self, split, collate_fn):
         root = os.path.join(self.hparams.data_dir, split)
-        dataset = hierarchical_dataset(root, self.hparams)[0]
-        collate_fn = AlignCollate(imgH=self.hparams.imgH, imgW=self.hparams.imgW, keep_ratio_with_pad=self.hparams.PAD)
+        transform = T.Compose([
+            T.Resize((self.hparams.imgH, self.hparams.imgW), T.InterpolationMode.BICUBIC),
+            T.ToTensor(),
+            T.Normalize(0.5, 0.5)
+        ])
+
+        dataset = hierarchical_dataset(root, self.hparams, transform=transform)[0]
+        #collate_fn = AlignCollate(imgH=self.hparams.imgH, imgW=self.hparams.imgW, keep_ratio_with_pad=self.hparams.PAD)
         dataloader = DataLoader(
             dataset,
             batch_size=self.hparams.batch_size,
@@ -29,11 +36,11 @@ class STRData(pl.LightningDataModule):
         )
         return dataloader
 
-    def train_dataloader(self):
-        return self._dataloader('training')
+    def train_dataloader(self, collate_fn=None):
+        return self._dataloader('training', collate_fn)
 
-    def val_dataloader(self):
-        return self._dataloader('validation')
+    def val_dataloader(self, collate_fn=None):
+        return self._dataloader('validation', collate_fn)
 
-    def test_dataloader(self):
-        return self._dataloader('evaluation')
+    def test_dataloader(self, collate_fn=None):
+        return self._dataloader('evaluation', collate_fn)

@@ -270,11 +270,10 @@ class ResizeNormalize(object):
 
     def __call__(self, img):
         # Resize to the max size that we support in order to have consistent corruptions
-        img = img.resize(self.max_size, self.interpolation)
+        img = img.resize(self.size, self.interpolation)
         if self.transform is not None:
             img = self.transform(img)
         # Resize to final dimensions
-        img = img.resize(self.size, self.interpolation)
         img = self.toTensor(img)
         if self.normalize:
             img.sub_(0.5).div_(0.5)
