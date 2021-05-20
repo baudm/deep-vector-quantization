@@ -29,7 +29,6 @@ class STRData(pl.LightningDataModule):
             dataset,
             batch_size=self.hparams.batch_size,
             num_workers=self.hparams.num_workers,
-            drop_last=True,
             pin_memory=True,
             shuffle=split == 'training',
             collate_fn=collate_fn
