@@ -5,14 +5,15 @@ variable bottleneck and use various tricks (softening / straight-through estimat
 to backpropagate through the sampling process.
 """
 
+import numpy as np
+
 import torch
 from torch import nn, einsum
 import torch.nn.functional as F
 
-from scipy.cluster.vq import kmeans2
+import faiss
 
 # -----------------------------------------------------------------------------
-
 class VQVAEQuantize(nn.Module):
     """
     Neural Discrete Representation Learning, van den Oord et al. 2017
@@ -31,37 +32,55 @@ class VQVAEQuantize(nn.Module):
         self.kld_scale = 10.0
 
         self.proj = nn.Conv2d(num_hiddens, embedding_dim, 1)
+        self.bn = nn.BatchNorm2d(embedding_dim)
         self.embed = nn.Embedding(n_embed, embedding_dim)
 
-        self.register_buffer('data_initialized', torch.zeros(1))
+        self.i = 1
+        self.m_init = 10000
+        self.m_reestim = 400000
+        self.r_reestim = 10000
+        self.reservoir = []
+        self.max_cache_size = 8 * n_embed // 128 # batch size
+        self.kmeans = faiss.Kmeans(embedding_dim, n_embed, gpu=True)
 
     def forward(self, z):
         B, C, H, W = z.size()
 
         # project and flatten out space, so (B, C, H, W) -> (B*H*W, C)
-        z_e = self.proj(z)
+        z_e = self.bn(self.proj(z))
         z_e = z_e.permute(0, 2, 3, 1) # make (B, H, W, C)
         flatten = z_e.reshape(-1, self.embedding_dim)
 
-        # DeepMind def does not do this but I find I have to... ;\
-        if self.training and self.data_initialized.item() == 0:
-            print('running kmeans!!') # data driven initialization for the embeddings
-            rp = torch.randperm(flatten.size(0))
-            kd = kmeans2(flatten[rp[:20000]].data.cpu().numpy(), self.n_embed, minit='points')
-            self.embed.weight.data.copy_(torch.from_numpy(kd[0]))
-            self.data_initialized.fill_(1)
-            # TODO: this won't work in multi-GPU setups
+        self.reservoir.append(flatten.detach().cpu().numpy().astype(np.float32))
+        if self.training and len(self.reservoir) >= self.max_cache_size:
+            # Remove oldest item
+            self.reservoir.pop(0)
 
-        dist = (
-            flatten.pow(2).sum(1, keepdim=True)
-            - 2 * flatten @ self.embed.weight.t()
-            + self.embed.weight.pow(2).sum(1, keepdim=True).t()
-        )
-        _, ind = (-dist).max(1)
-        ind = ind.view(B, H, W)
+        if self.training and self.i < self.m_init:
+            z_q = z_e.detach()
+            ind = torch.zeros(flatten.shape[0], dtype=int, device=flatten.device)
+        else:
+            if self.training and self.i % self.r_reestim == 0 and self.i < self.m_init + self.m_reestim:
+                embeddings = np.concatenate(self.reservoir)
+                # Reset
+                self.reservoir = []
+                print('kmeans', embeddings.shape)
+                self.kmeans.train(embeddings)
+                self.embed.weight.data.copy_(torch.from_numpy(self.kmeans.centroids))
 
-        # vector quantization cost that trains the embedding vectors
-        z_q = self.embed_code(ind) # (B, H, W, C)
+            dist = (
+                flatten.pow(2).sum(1, keepdim=True)
+                - 2 * flatten @ self.embed.weight.t()
+                + self.embed.weight.pow(2).sum(1, keepdim=True).t()
+            )
+            _, ind = (-dist).max(1)
+            ind = ind.view(B, H, W)
+
+            # vector quantization cost that trains the embedding vectors
+            z_q = self.embed_code(ind) # (B, H, W, C)
+
+        self.i += 1
+
         commitment_cost = 0.25
         diff = commitment_cost * (z_q.detach() - z_e).pow(2).mean() + (z_q - z_e.detach()).pow(2).mean()
         diff *= self.kld_scale

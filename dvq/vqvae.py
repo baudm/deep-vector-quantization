@@ -59,31 +59,36 @@ class VQVAE(pl.LightningModule):
         x_hat = self.decoder(z_q)
         return x_hat, latent_loss, ind
 
-    def training_step(self, batch, batch_idx):
-        x, y = batch # hate that i have to do this here in the model
-        x = self.recon_loss.inmap(x)
-        x_hat, latent_loss, ind = self.forward(x)
-        recon_loss = self.recon_loss.nll(x, x_hat)
-        loss = recon_loss + latent_loss
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x, y = batch # hate that i have to do this here in the model
-        x = self.recon_loss.inmap(x)
-        x_hat, latent_loss, ind = self.forward(x)
-        recon_loss = self.recon_loss.nll(x, x_hat)
-        self.log('val_recon_loss', recon_loss, prog_bar=True)
-
-        # debugging: cluster perplexity. when perplexity == num_embeddings then all clusters are used exactly equally
+    def compute_metrics(self, ind):
         encodings = F.one_hot(ind, self.quantizer.n_embed).float().reshape(-1, self.quantizer.n_embed)
         avg_probs = encodings.mean(0)
         perplexity = (-(avg_probs * torch.log(avg_probs + 1e-10)).sum()).exp()
         cluster_use = torch.sum(avg_probs > 0)
-        self.log('val_perplexity', perplexity, prog_bar=True)
-        self.log('val_cluster_use', cluster_use, prog_bar=True)
+        return perplexity, cluster_use
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch # hate that i have to do this here in the model
+        #x = self.recon_loss.inmap(x)
+        x_hat, latent_loss, ind = self.forward(x)
+        recon_loss = self.recon_loss.nll(x, x_hat)
+        loss = recon_loss + latent_loss
+        perplexity, cluster_use = self.compute_metrics(ind)
+        self.log('perplexity', perplexity, prog_bar=True)
+        self.log('cluster_use', cluster_use, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch # hate that i have to do this here in the model
+        #x = self.recon_loss.inmap(x)
+        x_hat, latent_loss, ind = self.forward(x)
+        recon_loss = self.recon_loss.nll(x, x_hat)
+        self.log('val_recon_loss', recon_loss, prog_bar=True)
+        # debugging: cluster perplexity. when perplexity == num_embeddings then all clusters are used exactly equally
+        perplexity, cluster_use = self.compute_metrics(ind)
+        self.log('val_p', perplexity, prog_bar=True)
+        self.log('val_cu', cluster_use, prog_bar=True)
 
     def configure_optimizers(self):
-
         # separate out all parameters to those that will and won't experience regularizing weight decay
         decay = set()
         no_decay = set()
@@ -116,7 +121,7 @@ class VQVAE(pl.LightningModule):
             {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": 1e-4},
             {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
         ]
-        optimizer = torch.optim.AdamW(optim_groups, lr=3e-4, betas=(0.9, 0.999), eps=1e-08, weight_decay=1e-4)
+        optimizer = torch.optim.AdamW(optim_groups, lr=5e-4, betas=(0.9, 0.999), eps=1e-08, weight_decay=1e-4)
         self.optimizer = optimizer
 
         return optimizer
@@ -163,7 +168,7 @@ class RampBeta(pl.Callback):
 class DecayLR(pl.Callback):
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
         # The step size is annealed from 1e10−4 to 1.25e10−6 over 1,200,000 updates. I use 3e-4
-        t = cos_anneal(0, 1200000, 3e-4, 1.25e-6, trainer.global_step)
+        t = cos_anneal(0, 1200000, 5e-4, 1.25e-6, trainer.global_step)
         for g in pl_module.optimizer.param_groups:
             g['lr'] = t
 
@@ -200,7 +205,7 @@ def cli_main():
     # annealing schedules for lots of constants
     callbacks = []
     callbacks.append(ModelCheckpoint(monitor='val_recon_loss', mode='min'))
-    callbacks.append(DecayLR())
+    #callbacks.append(DecayLR())
     if args.vq_flavor == 'gumbel':
        callbacks.extend([DecayTemperature(), RampBeta()])
     trainer = pl.Trainer.from_argparse_args(args, callbacks=callbacks, max_steps=3000000)
