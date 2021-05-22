@@ -37,10 +37,10 @@ class VQVAEQuantize(nn.Module):
 
         self.i = 1
         self.m_init = 10000
-        self.m_reestim = 400000
-        self.r_reestim = 10000
+        self.m_reestim = 120000
+        self.r_reestim = 20000
         self.reservoir = []
-        self.max_cache_size = 8 * n_embed // 128 # batch size
+        self.max_cache_size = 1000000 // (200 * 128 // 10) # N - max items
         self.kmeans = faiss.Kmeans(embedding_dim, n_embed, gpu=True)
 
     def forward(self, z):
@@ -51,10 +51,13 @@ class VQVAEQuantize(nn.Module):
         z_e = z_e.permute(0, 2, 3, 1) # make (B, H, W, C)
         flatten = z_e.reshape(-1, self.embedding_dim)
 
-        self.reservoir.append(flatten.detach().cpu().numpy().astype(np.float32))
-        if self.training and len(self.reservoir) >= self.max_cache_size:
-            # Remove oldest item
-            self.reservoir.pop(0)
+        if self.training:
+            # Cache 10% of the samples
+            rp = torch.randperm(flatten.shape[0])[:flatten.shape[0] // 10]
+            self.reservoir.append(flatten[rp].detach().cpu().numpy().astype(np.float32))
+            if len(self.reservoir) >= self.max_cache_size:
+                # Remove random item
+                self.reservoir.pop(np.random.randint(len(self.reservoir)))
 
         if self.training and self.i < self.m_init:
             z_q = z_e.detach()

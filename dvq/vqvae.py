@@ -73,8 +73,8 @@ class VQVAE(pl.LightningModule):
         recon_loss = self.recon_loss.nll(x, x_hat)
         loss = recon_loss + latent_loss
         perplexity, cluster_use = self.compute_metrics(ind)
-        self.log('perplexity', perplexity, prog_bar=True)
-        self.log('cluster_use', cluster_use, prog_bar=True)
+        self.log('p', perplexity, prog_bar=True)
+        self.log('cu', cluster_use, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -205,7 +205,7 @@ def cli_main():
     # annealing schedules for lots of constants
     callbacks = []
     callbacks.append(ModelCheckpoint(monitor='val_recon_loss', mode='min'))
-    #callbacks.append(DecayLR())
+    callbacks.append(DecayLR())
     if args.vq_flavor == 'gumbel':
        callbacks.extend([DecayTemperature(), RampBeta()])
     trainer = pl.Trainer.from_argparse_args(args, callbacks=callbacks, max_steps=3000000)
