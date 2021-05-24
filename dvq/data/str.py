@@ -17,11 +17,17 @@ class STRData(pl.LightningDataModule):
 
     def _dataloader(self, split, collate_fn):
         root = os.path.join(self.hparams.data_dir, split)
-        transform = T.Compose([
+        transform = [
             T.Resize((self.hparams.imgH, self.hparams.imgW), T.InterpolationMode.BICUBIC),
             T.ToTensor(),
             T.Normalize(0.5, 0.5)
-        ])
+        ]
+        if split == 'training':
+            transform.extend([
+                T.RandomVerticalFlip(),
+                T.RandomHorizontalFlip()
+            ])
+        transform = T.Compose(transform)
 
         dataset = hierarchical_dataset(root, self.hparams, transform=transform)[0]
         #collate_fn = AlignCollate(imgH=self.hparams.imgH, imgW=self.hparams.imgW, keep_ratio_with_pad=self.hparams.PAD)

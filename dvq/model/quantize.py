@@ -34,11 +34,12 @@ class VQVAEQuantize(nn.Module):
         self.proj = nn.Conv2d(num_hiddens, embedding_dim, 1)
         self.bn = nn.BatchNorm2d(embedding_dim)
         self.embed = nn.Embedding(n_embed, embedding_dim)
+        nn.init.normal_(self.embed.weight, 0, 0.1)
 
         self.i = 1
-        self.m_init = 10000
+        self.m_init = 10001
         self.m_reestim = 120000
-        self.r_reestim = 20000
+        self.r_reestim = 5000
         self.reservoir = []
         self.max_cache_size = 1000000 // (200 * 128 // 10) # N - max items
         self.kmeans = faiss.Kmeans(embedding_dim, n_embed, gpu=True)
