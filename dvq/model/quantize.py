@@ -62,7 +62,7 @@ class VQVAEQuantize(nn.Module):
 
         if self.training and self.i < self.m_init:
             z_q = z_e.detach()
-            ind = torch.zeros(flatten.shape[0], dtype=int, device=flatten.device)
+            ind = torch.zeros((B, H, W), dtype=int, device=flatten.device)
         else:
             if self.training and self.i % self.r_reestim == 0 and self.i < self.m_init + self.m_reestim:
                 embeddings = np.concatenate(self.reservoir)
