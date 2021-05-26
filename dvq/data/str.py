@@ -11,9 +11,10 @@ from .dataset import AlignCollate, hierarchical_dataset
 class STRData(pl.LightningDataModule):
     """ returns cifar-10 examples in floats in range [0,1] """
 
-    def __init__(self, args):
+    def __init__(self, args, for_vq_training=True):
         super().__init__()
         self.hparams = args
+        self.for_vq_training = for_vq_training
 
     def _dataloader(self, split, collate_fn):
         root = os.path.join(self.hparams.data_dir, split)
@@ -22,11 +23,12 @@ class STRData(pl.LightningDataModule):
             T.ToTensor(),
             T.Normalize(0.5, 0.5)
         ]
-        if split == 'training':
+        if self.for_vq_training and split == 'training':
             transform.extend([
                 T.RandomVerticalFlip(),
                 T.RandomHorizontalFlip()
             ])
+        print(transform)
         transform = T.Compose(transform)
 
         dataset = hierarchical_dataset(root, self.hparams, transform=transform)[0]
