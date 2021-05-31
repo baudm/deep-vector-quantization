@@ -53,6 +53,11 @@ class VQVAE(pl.LightningModule):
         }[args.loss_flavor]
         self.recon_loss = ReconLoss
 
+    def encode(self, x):
+        """Return code indices for input image x"""
+        z = self.encoder(x)
+        return self.quantizer(z)[-1]
+
     def forward(self, x):
         z = self.encoder(x)
         z_q, latent_loss, ind = self.quantizer(z)
