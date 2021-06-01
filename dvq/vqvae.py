@@ -132,16 +132,16 @@ class VQVAE(pl.LightningModule):
         return optimizer
 
     @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser], add_help=False)
+    def add_model_specific_args(parser):
+        group = parser.add_argument_group('VQVAE')
         # model type
-        parser.add_argument("--vq_flavor", type=str, default='vqvae', choices=['vqvae', 'gumbel'])
-        parser.add_argument("--enc_dec_flavor", type=str, default='deepmind', choices=['deepmind', 'openai'])
-        parser.add_argument("--loss_flavor", type=str, default='l2', choices=['l2', 'logit_laplace'])
+        group.add_argument("--vq_flavor", type=str, default='vqvae', choices=['vqvae', 'gumbel'])
+        group.add_argument("--enc_dec_flavor", type=str, default='deepmind', choices=['deepmind', 'openai'])
+        group.add_argument("--loss_flavor", type=str, default='l2', choices=['l2', 'logit_laplace'])
         # model size
-        parser.add_argument("--num_embeddings", type=int, default=512, help="vocabulary size; number of possible discrete states")
-        parser.add_argument("--embedding_dim", type=int, default=64, help="size of the vector of the embedding of each discrete token")
-        parser.add_argument("--n_hid", type=int, default=64, help="number of channels controlling the size of the model")
+        group.add_argument("--num_embeddings", type=int, default=512, help="vocabulary size; number of possible discrete states")
+        group.add_argument("--embedding_dim", type=int, default=64, help="size of the vector of the embedding of each discrete token")
+        group.add_argument("--n_hid", type=int, default=64, help="number of channels controlling the size of the model")
         return parser
 
 # -----------------------------------------------------------------------------
@@ -187,19 +187,7 @@ def cli_main():
     parser = pl.Trainer.add_argparse_args(parser)
     # model related
     parser = VQVAE.add_model_specific_args(parser)
-    # dataloader related
-    parser.add_argument("--data_dir", type=str, default='/apcv/users/akarpathy/cifar10')
-    parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--num_workers", type=int, default=8)
-    # dataset related
-    parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
-    parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
-    parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
-    parser.add_argument('--rgb', action='store_true', help='use rgb input')
-    parser.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz', help='character label')
-    parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
-    parser.add_argument('--PAD', action='store_true', help='whether to keep ratio then pad for image resize')
-    parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
+    parser = STRData.add_data_specific_args(parser)
     # done!
     args = parser.parse_args()
     # -------------------------------------------------------------------------

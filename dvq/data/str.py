@@ -11,12 +11,32 @@ from .dataset import AlignCollate, hierarchical_dataset
 class STRData(pl.LightningDataModule):
     """ returns cifar-10 examples in floats in range [0,1] """
 
-    def __init__(self, args, for_vq_training=True):
+    @staticmethod
+    def add_data_specific_args(parser):
+        group = parser.add_argument_group('STRData')
+        # dataloader related
+        group.add_argument("--data_dir", type=str, default='/apcv/users/akarpathy/cifar10')
+        group.add_argument("--batch_size", type=int, default=128)
+        group.add_argument("--num_workers", type=int, default=8)
+        # dataset related
+        group.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
+        group.add_argument('--imgH', type=int, default=32, help='the height of the input image')
+        group.add_argument('--imgW', type=int, default=100, help='the width of the input image')
+        group.add_argument('--rgb', action='store_true', help='use rgb input')
+        group.add_argument('--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz',
+                           help='character label')
+        group.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
+        group.add_argument('--PAD', action='store_true', help='whether to keep ratio then pad for image resize')
+        group.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
+        return parser
+
+    def __init__(self, args, collate_fn=None, for_vq_training=True):
         super().__init__()
         self.hparams = args
+        self.collate_fn = collate_fn
         self.for_vq_training = for_vq_training
 
-    def _dataloader(self, split, collate_fn):
+    def _dataloader(self, split):
         root = os.path.join(self.hparams.data_dir, split)
         transform = [
             T.Resize((self.hparams.imgH, self.hparams.imgW), T.InterpolationMode.BICUBIC),
@@ -39,15 +59,15 @@ class STRData(pl.LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=True,
             shuffle=split == 'training',
-            collate_fn=collate_fn
+            collate_fn=self.collate_fn
         )
         return dataloader
 
-    def train_dataloader(self, collate_fn=None):
-        return self._dataloader('training', collate_fn)
+    def train_dataloader(self):
+        return self._dataloader('training')
 
-    def val_dataloader(self, collate_fn=None):
-        return self._dataloader('validation', collate_fn)
+    def val_dataloader(self):
+        return self._dataloader('validation')
 
-    def test_dataloader(self, collate_fn=None):
-        return self._dataloader('evaluation', collate_fn)
+    def test_dataloader(self):
+        return self._dataloader('evaluation')
