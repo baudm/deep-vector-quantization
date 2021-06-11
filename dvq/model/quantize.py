@@ -35,8 +35,10 @@ class VQVAEQuantize(nn.Module):
         self.bn = nn.BatchNorm2d(embedding_dim)
         self.embed = nn.Embedding(n_embed, embedding_dim)
         nn.init.normal_(self.embed.weight, 0, 0.1)
+        self.kmeans = None
 
-        self.i = 1
+    def _train_init(self):
+        self.i = 0
         self.m_init = 10001
         self.m_reestim = 120000
         self.r_reestim = 5000
@@ -53,6 +55,9 @@ class VQVAEQuantize(nn.Module):
         flatten = z_e.reshape(-1, self.embedding_dim)
 
         if self.training:
+            self.i += 1
+            if self.kmeans is None:
+                self._train_init()
             # Cache 10% of the samples
             rp = torch.randperm(flatten.shape[0])[:flatten.shape[0] // 10]
             self.reservoir.append(flatten[rp].detach().cpu().numpy().astype(np.float32))
@@ -82,8 +87,6 @@ class VQVAEQuantize(nn.Module):
 
             # vector quantization cost that trains the embedding vectors
             z_q = self.embed_code(ind) # (B, H, W, C)
-
-        self.i += 1
 
         commitment_cost = 0.25
         diff = commitment_cost * (z_q.detach() - z_e).pow(2).mean() + (z_q - z_e.detach()).pow(2).mean()
