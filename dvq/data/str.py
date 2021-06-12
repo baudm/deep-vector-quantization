@@ -1,11 +1,12 @@
 import os
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler, ConcatDataset
 from torchvision import transforms as T
 
 import pytorch_lightning as pl
 
 from .dataset import AlignCollate, hierarchical_dataset
+from .sampler import BatchBalancedSampler
 
 
 class STRData(pl.LightningDataModule):
@@ -51,18 +52,31 @@ class STRData(pl.LightningDataModule):
         print(transform)
         transform = T.Compose(transform)
 
-        if split == 'evaluation':
-            subset = ['IIIT5k_3000', 'SVT', 'IC03_867', 'IC13_1015', 'IC15_2077', 'SVTP', 'CUTE80']
+        if split == 'training':
+            samplers = []
+            datasets = []
+            for d in ['MJ', 'ST']:
+                dataset = hierarchical_dataset(root, self.hparams, select_data=d, transform=transform)[0]
+                datasets.append(dataset)
+                samplers.append(DistributedSampler(dataset))
+            r = [1., 1.]
+            dataset = ConcatDataset(datasets)
+            sampler = BatchBalancedSampler(samplers, r, self.hparams.batch_size)
         else:
-            subset = '/'
-        dataset = hierarchical_dataset(root, self.hparams, select_data=subset, transform=transform)[0]
+            if split == 'evaluation':
+                subset = ['IIIT5k_3000', 'SVT', 'IC03_867', 'IC13_1015', 'IC15_2077', 'SVTP', 'CUTE80']
+            else:
+                subset = '/'
+            dataset = hierarchical_dataset(root, self.hparams, select_data=subset, transform=transform)[0]
+            sampler = None
+
         #collate_fn = AlignCollate(imgH=self.hparams.imgH, imgW=self.hparams.imgW, keep_ratio_with_pad=self.hparams.PAD)
         dataloader = DataLoader(
             dataset,
             batch_size=self.hparams.batch_size,
             num_workers=self.hparams.num_workers,
             pin_memory=True,
-            shuffle=split == 'training',
+            batch_sampler=sampler,
             collate_fn=self.collate_fn
         )
         return dataloader
