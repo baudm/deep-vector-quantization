@@ -51,6 +51,9 @@ class BatchBalancedSampler(Sampler[List[int]]):
                         batch.append(next(s) + self.offsets[i])
             except StopIteration:
                 break
+            # The if statement below might not be needed anymore
+            # since it's either we hit StopIteration (incomplete)
+            # or not (complete).
             if len(batch) == self.batch_size:
                 yield batch
                 batch = []
