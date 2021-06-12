@@ -59,7 +59,7 @@ class BatchBalancedSampler(Sampler[List[int]]):
 
     def __len__(self) -> int:
         sampler = self.samplers[self.ref_sampler_idx]
-        batch_prop = self.batch_props[self.ref_sampler_idx]
+        batch_prop = self.batch_props[self.ref_sampler_idx].item()
         if self.drop_last:
             return len(sampler) // batch_prop
         else:
