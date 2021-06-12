@@ -55,9 +55,9 @@ class VQVAEQuantize(nn.Module):
         flatten = z_e.reshape(-1, self.embedding_dim)
 
         if self.training:
-            self.i += 1
             if self.kmeans is None:
                 self._train_init()
+            self.i += 1
             # Cache 10% of the samples
             rp = torch.randperm(flatten.shape[0])[:flatten.shape[0] // 10]
             self.reservoir.append(flatten[rp].detach().cpu().numpy().astype(np.float32))
