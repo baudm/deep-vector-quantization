@@ -2,7 +2,7 @@ import itertools
 from typing import List, Iterator
 
 import torch
-from torch.utils.data import Sampler
+from torch.utils.data import Sampler, DistributedSampler
 
 
 class BatchBalancedSampler(Sampler[List[int]]):
@@ -29,7 +29,7 @@ class BatchBalancedSampler(Sampler[List[int]]):
         diff = batch_size - props.sum().item()
         props[props.argmin()] += diff
         self.batch_props = props
-        num_samples = [len(s) for s in self.samplers]
+        num_samples = [s.num_samples if isinstance(s, DistributedSampler) else len(s) for s in self.samplers]
         self.offsets = [0] + num_samples[:-1]
         self.offsets = list(itertools.accumulate(self.offsets))
         # Get the sampler with the most number of iterations. It will determine when the loop stops.
