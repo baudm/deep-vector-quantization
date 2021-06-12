@@ -61,7 +61,7 @@ class STRData(pl.LightningDataModule):
                 samplers.append(DistributedSampler(dataset))
             r = [1., 1.]
             dataset = ConcatDataset(datasets)
-            sampler = BatchBalancedSampler(samplers, r, self.hparams.batch_size)
+            sampler = BatchBalancedSampler(samplers, r, self.hparams.batch_size, False)
         else:
             if split == 'evaluation':
                 subset = ['IIIT5k_3000', 'SVT', 'IC03_867', 'IC13_1015', 'IC15_2077', 'SVTP', 'CUTE80']
@@ -73,7 +73,6 @@ class STRData(pl.LightningDataModule):
         #collate_fn = AlignCollate(imgH=self.hparams.imgH, imgW=self.hparams.imgW, keep_ratio_with_pad=self.hparams.PAD)
         dataloader = DataLoader(
             dataset,
-            batch_size=self.hparams.batch_size,
             num_workers=self.hparams.num_workers,
             pin_memory=True,
             batch_sampler=sampler,
