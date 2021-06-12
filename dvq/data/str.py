@@ -51,7 +51,11 @@ class STRData(pl.LightningDataModule):
         print(transform)
         transform = T.Compose(transform)
 
-        dataset = hierarchical_dataset(root, self.hparams, transform=transform)[0]
+        if split == 'evaluation':
+            subset = ['IIIT5k_3000', 'SVT', 'IC03_867', 'IC13_1015', 'IC15_2077', 'SVTP', 'CUTE80']
+        else:
+            subset = '/'
+        dataset = hierarchical_dataset(root, self.hparams, select_data=subset, transform=transform)[0]
         #collate_fn = AlignCollate(imgH=self.hparams.imgH, imgW=self.hparams.imgW, keep_ratio_with_pad=self.hparams.PAD)
         dataloader = DataLoader(
             dataset,
