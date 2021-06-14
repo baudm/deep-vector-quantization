@@ -44,7 +44,7 @@ class VQVAEQuantize(nn.Module):
         self.r_reestim = 5000
         self.reservoir = []
         self.max_cache_size = 1000000 // (200 * 128 // 10) # N - max items
-        self.kmeans = faiss.Kmeans(embedding_dim, n_embed, gpu=True)
+        self.kmeans = faiss.Kmeans(self.embedding_dim, self.n_embed, gpu=True)
 
     def forward(self, z):
         B, C, H, W = z.size()

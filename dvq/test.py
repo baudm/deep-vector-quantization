@@ -48,8 +48,8 @@ for img, label in data_module.val_dataloader():
     l = torch.nn.functional.mse_loss(x_hat, img)
     mse.append(l.item())
 
-codes = torch.cat(codes)
+codes = torch.cat(codes).flatten()
 with torch.no_grad():
     print(codes.shape)
     perplexity, code_use = vq.compute_metrics(codes)
-print('P:', perplexity.item(), 'C:', code_use.item(), 'M:', torch.mean(torch.as_tensor(mse)).item())
+print('P:', perplexity.item(), 'C:', code_use, 'M:', torch.mean(torch.as_tensor(mse)).item())

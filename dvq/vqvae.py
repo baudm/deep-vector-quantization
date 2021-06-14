@@ -65,10 +65,10 @@ class VQVAE(pl.LightningModule):
         return x_hat, latent_loss, ind
 
     def compute_metrics(self, ind):
-        encodings = F.one_hot(ind, self.quantizer.n_embed).float().reshape(-1, self.quantizer.n_embed)
-        avg_probs = encodings.mean(0)
+        counts = ind.unique(return_counts=True)[1]
+        avg_probs = counts / len(ind)
         perplexity = (-(avg_probs * torch.log(avg_probs + 1e-10)).sum()).exp()
-        cluster_use = torch.sum(avg_probs > 0)
+        cluster_use = len(counts)
         return perplexity, cluster_use
 
     def training_step(self, batch, batch_idx):
